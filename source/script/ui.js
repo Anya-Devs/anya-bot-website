@@ -1,382 +1,312 @@
-// ui-interactions.js - UI interactions, animations, and navigation
+// ui-interactions.js - Sleek UI interactions and animations
 
-// Smooth scrolling for navigation links
+// Smooth scrolling with improved performance
 function initSmoothScrolling() {
-    const navLinks = document.querySelectorAll('.nav-link, .footer-section a[href^="#"]');
+    const navLinks = document.querySelectorAll('[data-smooth-scroll]');
     
     navLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
-            const href = this.getAttribute('href');
+        link.addEventListener('click', (e) => {
+            const href = link.getAttribute('href');
             
             if (href.startsWith('#')) {
                 e.preventDefault();
-                const targetId = href.substring(1);
-                const targetElement = document.getElementById(targetId);
+                const target = document.querySelector(href);
                 
-                if (targetElement) {
-                    const headerHeight = document.querySelector('.header').offsetHeight;
-                    const targetPosition = targetElement.offsetTop - headerHeight - 20;
+                if (target) {
+                    const header = document.querySelector('.header');
+                    const offset = header ? header.offsetHeight + 10 : 0;
+                    const targetPos = target.getBoundingClientRect().top + window.scrollY - offset;
                     
-                    window.scrollTo({
-                        top: targetPosition,
-                        behavior: 'smooth'
-                    });
+                    // Use requestAnimationFrame for smoother animation
+                    const startPos = window.scrollY;
+                    const distance = targetPos - startPos;
+                    const duration = 500;
+                    let startTime = null;
                     
-                    // Add visual feedback
-                    this.style.transform = 'scale(0.95)';
-                    setTimeout(() => {
-                        this.style.transform = '';
-                    }, 150);
+                    const animateScroll = (currentTime) => {
+                        if (!startTime) startTime = currentTime;
+                        const timeElapsed = currentTime - startTime;
+                        const progress = Math.min(timeElapsed / duration, 1);
+                        const ease = easeOutQuart(progress);
+                        
+                        window.scrollTo(0, startPos + (distance * ease));
+                        
+                        if (timeElapsed < duration) {
+                            requestAnimationFrame(animateScroll);
+                        }
+                    };
+                    
+                    requestAnimationFrame(animateScroll);
+                    
+                    // Subtle click feedback
+                    link.classList.add('active');
+                    setTimeout(() => link.classList.remove('active'), 150);
                 }
             }
         });
     });
-}
-
-// Header scroll effect with banner position adjustment
-function initHeaderScrollEffect() {
-    const header = document.querySelector('.header');
-    const heroBanner = document.querySelector('.hero-banner, .banner');
-    let lastScrollY = window.scrollY;
     
-    window.addEventListener('scroll', () => {
-        const currentScrollY = window.scrollY;
-        
-        // Header background changes
-        if (currentScrollY > 100) {
-            header.style.background = 'rgba(46, 125, 50, 0.98)';
-            header.style.boxShadow = '0 4px 25px rgba(0, 0, 0, 0.15)';
-        } else {
-            header.style.background = 'rgba(46, 125, 50, 0.95)';
-            header.style.boxShadow = '0 2px 20px rgba(0, 0, 0, 0.1)';
-        }
-        
-        // Hide/show header on scroll
-        if (currentScrollY > lastScrollY && currentScrollY > 200) {
-            header.style.transform = 'translateY(-100%)';
-        } else {
-            header.style.transform = 'translateY(0)';
-        }
-        
-        // Parallax effect for hero banner
-        if (heroBanner && currentScrollY < window.innerHeight) {
-            const parallaxSpeed = 0.5;
-            heroBanner.style.transform = `translateY(${currentScrollY * parallaxSpeed}px)`;
-            
-            // Ensure banner stays behind hero content
-            heroBanner.style.zIndex = '-1';
-        }
-        
-        lastScrollY = currentScrollY;
-    });
-    
-    // Initial banner positioning
-    if (heroBanner) {
-        heroBanner.style.position = 'absolute';
-        heroBanner.style.top = '0';
-        heroBanner.style.left = '0';
-        heroBanner.style.width = '100%';
-        heroBanner.style.height = '100%';
-        heroBanner.style.zIndex = '-1';
-        heroBanner.style.pointerEvents = 'none';
+    function easeOutQuart(t) {
+        return 1 - Math.pow(1 - t, 4);
     }
 }
 
-// Intersection Observer for animations
-function initAnimationObserver() {
-    const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
+// Modern header scroll effects with IntersectionObserver
+function initHeaderEffects() {
+    const header = document.querySelector('.header');
+    if (!header) return;
+    
+    // Use IntersectionObserver for better performance
+    const observer = new IntersectionObserver(
+        ([entry]) => {
+            header.classList.toggle('scrolled', !entry.isIntersecting);
+        },
+        { threshold: 0.1 }
+    );
+    
+    observer.observe(document.querySelector('.hero-section'));
+    
+    // Hide/show on scroll direction
+    let lastScroll = 0;
+    window.addEventListener('scroll', () => {
+        const currentScroll = window.scrollY;
+        if (currentScroll <= 0) {
+            header.classList.remove('hidden');
+            return;
+        }
+        
+        if (Math.abs(currentScroll - lastScroll) < 50) return;
+        
+        if (currentScroll > lastScroll && currentScroll > 100) {
+            header.classList.add('hidden');
+        } else {
+            header.classList.remove('hidden');
+        }
+        
+        lastScroll = currentScroll;
+    }, { passive: true });
+}
+
+// Sleek animation system with GSAP-like easing
+function initAnimations() {
+    const animateOnScroll = (elements) => {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15 });
+        
+        elements.forEach(el => observer.observe(el));
     };
     
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.style.opacity = '1';
-                entry.target.style.transform = 'translateY(0)';
-                
-                // Add staggered animation for feature cards
-                if (entry.target.classList.contains('feature-card')) {
-                    const cards = document.querySelectorAll('.feature-card');
-                    const index = Array.from(cards).indexOf(entry.target);
-                    entry.target.style.animationDelay = `${index * 0.1}s`;
-                    entry.target.classList.add('animate-in');
-                }
-                
-                // Special animation for hero content
-                if (entry.target.classList.contains('hero-content')) {
-                    entry.target.style.animation = 'heroFadeIn 1s ease forwards';
-                }
-            }
-        });
-    }, observerOptions);
+    // Configure animations
+    const fadeUpElements = document.querySelectorAll('[data-animate="fade-up"]');
+    const fadeInElements = document.querySelectorAll('[data-animate="fade-in"]');
+    const staggerElements = document.querySelectorAll('[data-animate="stagger"]');
     
-    // Observe elements for animation
-    const animatedElements = document.querySelectorAll('.feature-card, .content-card, .footer-section, .hero-content');
-    animatedElements.forEach(el => {
+    fadeUpElements.forEach(el => {
         el.style.opacity = '0';
-        el.style.transform = 'translateY(30px)';
-        el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-        observer.observe(el);
+        el.style.transform = 'translateY(20px)';
+        el.style.transition = 'opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out)';
+    });
+    
+    fadeInElements.forEach(el => {
+        el.style.opacity = '0';
+        el.style.transition = 'opacity 0.8s var(--ease-in-out)';
+    });
+    
+    staggerElements.forEach((el, i) => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(15px)';
+        el.style.transition = `opacity 0.5s var(--ease-out) ${i * 0.1}s, transform 0.5s var(--ease-out) ${i * 0.1}s`;
+    });
+    
+    animateOnScroll([...fadeUpElements, ...fadeInElements, ...staggerElements]);
+}
+
+// Modern card interactions with CSS variables
+function initCardInteractions() {
+    const cards = document.querySelectorAll('.card');
+    
+    cards.forEach(card => {
+        card.style.setProperty('--hover-scale', '1.02');
+        card.style.setProperty('--active-scale', '0.98');
+        card.style.setProperty('--hover-elevation', '25px');
+        card.style.setProperty('--transition-speed', '0.4s');
+        
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            card.style.setProperty('--mouse-x', `${(x - centerX) / 20}px`);
+            card.style.setProperty('--mouse-y', `${(y - centerY) / 20}px`);
+        });
+        
+        card.addEventListener('mouseleave', () => {
+            card.style.setProperty('--mouse-x', '0px');
+            card.style.setProperty('--mouse-y', '0px');
+        });
+        
+        card.addEventListener('click', () => {
+            card.classList.add('active');
+            setTimeout(() => card.classList.remove('active'), 300);
+        });
     });
 }
 
-// Feature card interactions
-function initFeatureCardInteractions() {
-    const featureCards = document.querySelectorAll('.feature-card');
+// Minimalist tooltip system
+function initTooltips() {
+    const tooltipTriggers = document.querySelectorAll('[data-tooltip]');
     
-    featureCards.forEach(card => {
-        // Add hover sound effect (visual feedback)
-        card.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-15px) scale(1.02)';
-            this.style.boxShadow = '0 25px 50px rgba(0, 0, 0, 0.2)';
+    tooltipTriggers.forEach(trigger => {
+        let tooltip = null;
+        let timeout = null;
+        
+        const showTooltip = () => {
+            if (tooltip) return;
             
-            // Add sparkle effect
-            createSparkleEffect(this);
-        });
+            tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            tooltip.textContent = trigger.getAttribute('data-tooltip');
+            document.body.appendChild(tooltip);
+            
+            positionTooltip(trigger, tooltip);
+            tooltip.classList.add('visible');
+        };
         
-        card.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0) scale(1)';
-            this.style.boxShadow = '0 10px 30px rgba(0, 0, 0, 0.1)';
-        });
-        
-        // Click interaction
-        card.addEventListener('click', function() {
-            this.style.transform = 'translateY(-10px) scale(0.98)';
+        const hideTooltip = () => {
+            if (!tooltip) return;
+            
+            tooltip.classList.remove('visible');
             setTimeout(() => {
-                this.style.transform = 'translateY(-15px) scale(1.02)';
-            }, 100);
-            
-            // Show tooltip with command help
-            showCommandTooltip(card);
+                tooltip.remove();
+                tooltip = null;
+            }, 200);
+        };
+        
+        trigger.addEventListener('mouseenter', () => {
+            timeout = setTimeout(showTooltip, 300);
+        });
+        
+        trigger.addEventListener('mouseleave', () => {
+            clearTimeout(timeout);
+            hideTooltip();
+        });
+        
+        trigger.addEventListener('click', () => {
+            if (tooltip) hideTooltip();
+            else showTooltip();
         });
     });
-}
-
-// Create sparkle effect
-function createSparkleEffect(element) {
-    const sparkles = 5;
-    const rect = element.getBoundingClientRect();
     
-    for (let i = 0; i < sparkles; i++) {
-        const sparkle = document.createElement('div');
-        sparkle.className = 'sparkle';
-        sparkle.style.cssText = `
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: #66bb6a;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 1000;
-            left: ${rect.left + Math.random() * rect.width}px;
-            top: ${rect.top + Math.random() * rect.height}px;
-            animation: sparkle 1s ease-out forwards;
-        `;
+    function positionTooltip(trigger, tooltip) {
+        const rect = trigger.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
         
-        document.body.appendChild(sparkle);
+        let top = rect.top - tooltipRect.height - 10;
+        let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
         
-        setTimeout(() => {
-            sparkle.remove();
-        }, 1000);
-    }
-}
-
-// Command tooltip system
-function showCommandTooltip(card) {
-    const existingTooltip = document.querySelector('.command-tooltip');
-    if (existingTooltip) {
-        existingTooltip.remove();
-    }
-    
-    const cardTitle = card.querySelector('h3').textContent;
-    let command = '';
-    let description = '';
-    
-    switch (cardTitle) {
-        case 'Quest System':
-            command = '<prefix>quest';
-            description = 'Start new adventures and earn Stella Points!';
-            break;
-        case 'Spy Shop':
-            command = '<prefix>shop';
-            description = 'Browse and craft your spy tools!';
-            break;
-        case 'Inventory':
-            command = '<prefix>inventory';
-            description = 'Check your collected spy equipment!';
-            break;
-        case 'Balance & Status':
-            command = '<prefix>balance';
-            description = 'View your Stella Stars and ranking!';
-            break;
-    }
-    
-    const tooltip = document.createElement('div');
-    tooltip.className = 'command-tooltip';
-    tooltip.innerHTML = `
-        <div class="tooltip-content">
-            <strong>Command:</strong> <code>${command}</code><br>
-            <span>${description}</span>
-            <div class="tooltip-tip">💡 Tip: Try using the command for help!</div>
-        </div>
-    `;
-    
-    tooltip.style.cssText = `
-        position: fixed;
-        background: rgba(46, 125, 50, 0.95);
-        color: white;
-        padding: 15px;
-        border-radius: 10px;
-        font-size: 0.9rem;
-        z-index: 1001;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-        backdrop-filter: blur(10px);
-        animation: tooltipFadeIn 0.3s ease;
-        max-width: 300px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-    `;
-    
-    const rect = card.getBoundingClientRect();
-    tooltip.style.left = `${rect.left + rect.width / 2}px`;
-    tooltip.style.top = `${rect.top - 10}px`;
-    tooltip.style.transform = 'translate(-50%, -100%)';
-    
-    document.body.appendChild(tooltip);
-    
-    // Auto-remove tooltip after 3 seconds
-    setTimeout(() => {
-        if (tooltip.parentNode) {
-            tooltip.style.animation = 'tooltipFadeOut 0.3s ease forwards';
-            setTimeout(() => tooltip.remove(), 300);
+        // Adjust if going off screen
+        if (top < 0) top = rect.bottom + 10;
+        if (left < 0) left = 10;
+        if (left + tooltipRect.width > window.innerWidth) {
+            left = window.innerWidth - tooltipRect.width - 10;
         }
-    }, 3000);
+        
+        tooltip.style.top = `${top + window.scrollY}px`;
+        tooltip.style.left = `${left}px`;
+    }
 }
 
-// Copy to clipboard functionality
-function initCopyToClipboard() {
-    const codeBlocks = document.querySelectorAll('pre code, .bot-id code');
-    
-    codeBlocks.forEach(codeBlock => {
-        // Skip if it's inline code with very short content
-        if (codeBlock.textContent.length < 10) return;
-        
-        const wrapper = document.createElement('div');
-        wrapper.style.position = 'relative';
-        
-        const copyBtn = document.createElement('button');
-        copyBtn.className = 'copy-btn';
-        copyBtn.innerHTML = '📋 Copy';
-        copyBtn.style.cssText = `
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(46, 125, 50, 0.8);
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(5px);
-        `;
-        
-        copyBtn.addEventListener('click', async () => {
-            try {
-                await navigator.clipboard.writeText(codeBlock.textContent);
-                copyBtn.innerHTML = '✅ Copied!';
-                copyBtn.style.background = 'rgba(76, 175, 80, 0.8)';
-                
-                setTimeout(() => {
-                    copyBtn.innerHTML = '📋 Copy';
-                    copyBtn.style.background = 'rgba(46, 125, 50, 0.8)';
-                }, 2000);
-            } catch (err) {
-                copyBtn.innerHTML = '❌ Error';
-                setTimeout(() => {
-                    copyBtn.innerHTML = '📋 Copy';
-                }, 2000);
-            }
-        });
-        
-        copyBtn.addEventListener('mouseenter', () => {
-            copyBtn.style.background = 'rgba(46, 125, 50, 1)';
-            copyBtn.style.transform = 'scale(1.05)';
-        });
-        
-        copyBtn.addEventListener('mouseleave', () => {
-            copyBtn.style.background = 'rgba(46, 125, 50, 0.8)';
-            copyBtn.style.transform = 'scale(1)';
-        });
-        
-        codeBlock.parentNode.insertBefore(wrapper, codeBlock);
-        wrapper.appendChild(codeBlock);
-        wrapper.appendChild(copyBtn);
-    });
-}
-
-// Mobile menu functionality (for smaller screens)
+// Enhanced mobile menu with touch gestures
 function initMobileMenu() {
-    const nav = document.querySelector('.nav');
-    const header = document.querySelector('.header');
+    const menu = document.querySelector('.nav');
+    const toggle = document.querySelector('.menu-toggle');
+    if (!menu || !toggle) return;
     
-    // Create mobile menu button
-    const mobileMenuBtn = document.createElement('button');
-    mobileMenuBtn.className = 'mobile-menu-btn';
-    mobileMenuBtn.innerHTML = '☰';
-    mobileMenuBtn.style.cssText = `
-        display: none;
-        background: none;
-        border: none;
-        color: white;
-        font-size: 1.5rem;
-        cursor: pointer;
-        padding: 10px;
-        border-radius: 5px;
-        transition: background 0.3s ease;
-    `;
+    let startY = 0;
+    let isDragging = false;
     
-    mobileMenuBtn.addEventListener('click', () => {
-        nav.classList.toggle('mobile-open');
-        mobileMenuBtn.innerHTML = nav.classList.contains('mobile-open') ? '✕' : '☰';
+    toggle.addEventListener('click', () => {
+        menu.classList.toggle('open');
+        document.body.style.overflow = menu.classList.contains('open') ? 'hidden' : '';
     });
     
-    // Add mobile styles
-    const mobileStyle = document.createElement('style');
-    mobileStyle.textContent = `
-        @media (max-width: 768px) {
-            .mobile-menu-btn {
-                display: block !important;
-            }
-            
-            .nav {
-                position: absolute;
-                top: 100%;
-                left: 0;
-                right: 0;
-                background: rgba(46, 125, 50, 0.98);
-                flex-direction: column;
-                padding: 20px;
-                transform: translateY(-100%);
-                opacity: 0;
-                visibility: hidden;
-                transition: all 0.3s ease;
-            }
-            
-            .nav.mobile-open {
-                transform: translateY(0);
-                opacity: 1;
-                visibility: visible;
-            }
-            
-            .nav-link {
-                margin: 5px 0;
-                text-align: center;
-            }
-        }
-    `;
-    document.head.appendChild(mobileStyle);
+    // Swipe to close
+    menu.addEventListener('touchstart', (e) => {
+        startY = e.touches[0].clientY;
+        isDragging = true;
+    }, { passive: true });
     
-    header.querySelector('.header-content').appendChild(mobileMenuBtn);
+    menu.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const y = e.touches[0].clientY;
+        const diff = y - startY;
+        
+        if (diff > 50) {
+            menu.classList.remove('open');
+            document.body.style.overflow = '';
+            isDragging = false;
+        }
+    }, { passive: true });
+    
+    menu.addEventListener('touchend', () => {
+        isDragging = false;
+    }, { passive: true });
 }
+
+// Clipboard with visual feedback
+function initClipboard() {
+    document.querySelectorAll('[data-clipboard]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const text = btn.getAttribute('data-clipboard');
+            
+            try {
+                await navigator.clipboard.writeText(text);
+                
+                // Visual feedback
+                const feedback = document.createElement('div');
+                feedback.className = 'clipboard-feedback';
+                feedback.textContent = 'Copied!';
+                document.body.appendChild(feedback);
+                
+                // Position near button
+                const rect = btn.getBoundingClientRect();
+                feedback.style.left = `${rect.left + (rect.width / 2)}px`;
+                feedback.style.top = `${rect.top - 10}px`;
+                
+                // Animate
+                setTimeout(() => {
+                    feedback.style.opacity = '0';
+                    feedback.style.transform = 'translate(-50%, -15px)';
+                }, 100);
+                
+                // Remove after animation
+                setTimeout(() => feedback.remove(), 1000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+            }
+        });
+    });
+}
+
+// Initialize all UI components
+document.addEventListener('DOMContentLoaded', () => {
+    initSmoothScrolling();
+    initHeaderEffects();
+    initAnimations();
+    initCardInteractions();
+    initTooltips();
+    initMobileMenu();
+    initClipboard();
+});
+
+// Add CSS variables for consistent animations
+document.documentElement.style.setProperty('--ease-out', 'cubic-bezier(0.16, 1, 0.3, 1)');
+document.documentElement.style.setProperty('--ease-in-out', 'cubic-bezier(0.65, 0, 0.35, 1)');
