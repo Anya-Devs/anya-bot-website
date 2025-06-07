@@ -656,7 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const total = targetWord.length;
 
         if (progress === 1) {
-            showSequenceHint('👀', 'Good start... 1/3');
+            ///showSequenceHint('👀', 'Good start... 1/3');
         } else if (progress === 2) {
             showSequenceHint('🎯', 'Almost there... 2/3');
         } else if (progress == 3) {
