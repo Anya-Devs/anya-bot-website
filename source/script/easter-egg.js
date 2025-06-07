@@ -155,7 +155,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             themeAudio.addEventListener('ended', () => {
                 isPlaying = false;
-                removeMusicIndicator();
                 stopAudioAnalysis();
             });
 
@@ -252,11 +251,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 themeAudio.play().then(() => {
                     isPlaying = true;
                     connectAudioAnalysis();
-                    showMusicIndicator();
                     showSpyMessage();
                     addMusicOverlay();
                     startAudioAnalysis();
-                    //stopTranscription(); // Add this line
+                    stopTranscription(); // Add this line
 
                 }).catch(error => {
                     console.log('Audio playback failed - user interaction may be required');
@@ -327,24 +325,128 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addMusicOverlay() {
+        // Prevent duplicate overlays
+        if (document.getElementById('music-overlay')) return;
+
         const overlay = document.createElement('div');
         overlay.id = 'music-overlay';
         overlay.className = 'music-overlay';
+        overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.1);
+        pointer-events: none;
+        z-index: 999;
+        transition: background 0.1s ease;
+    `;
         document.body.appendChild(overlay);
 
-        // Add bass-react class to all major elements
-        const elements = document.querySelectorAll('div, section, header, main, article, aside, nav, button, img, h1, h2, h3, h4, h5, h6, p');
-        elements.forEach(el => {
-            if (!el.id || el.id !== 'music-overlay') {
-                el.classList.add('bass-react');
+
+        // Be more selective with elements - only target key visual elements
+        const textElements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, span, div:not([class*="overlay"]), article, section');
+        const fallColors = {
+            primary: '#D9603B',      // Warm rust/orange
+            secondary: '#BF8E3F',    // Golden brown
+            accent: '#8C382A',       // Deep rust
+            highlight: '#EA9221',    // Bright amber
+            neutral: '#5E483E'       // Dark brown
+        };
+        textElements.forEach((element, index) => {
+            let color;
+            if (element.tagName === 'H1' || element.tagName === 'H2' || element.tagName === 'H3') {
+                color = fallColors.primary;
+            } else if (element.tagName === 'H4' || element.tagName === 'H5' || element.tagName === 'H6') {
+                color = fallColors.secondary;
+            } else {
+                color = fallColors.neutral;
             }
+            element.style.color = color;
         });
 
-        // Add treble-react to smaller interactive elements
-        const interactiveElements = document.querySelectorAll('button, a, input, textarea, select, .btn, .card, .avatar');
-        interactiveElements.forEach(el => {
-            el.classList.add('treble-react');
+
+    }
+
+    function applyBassReaction(bassLevel) {
+        const intensity = Math.min(bassLevel / 128, 1);
+        const elements = document.querySelectorAll('.bass-react');
+
+        // Higher threshold and gentler effects
+        if (intensity > 0.5) {
+            const brightness = 1 + (intensity * 0.15); // Much more subtle
+            const scale = 1 + (intensity * 0.01); // Barely noticeable scaling
+
+            elements.forEach(el => {
+                el.style.filter = `brightness(${brightness})`;
+                el.style.transform = `scale(${scale})`;
+                el.style.transition = 'filter 0.1s ease, transform 0.1s ease';
+            });
+        } else {
+            // Reset when below threshold
+            elements.forEach(el => {
+                el.style.filter = '';
+                el.style.transform = '';
+            });
+        }
+    }
+
+    function applyMidReaction(midLevel) {
+        const intensity = Math.min(midLevel / 128, 1);
+        const overlay = document.getElementById('music-overlay');
+
+        if (overlay && intensity > 0.4) {
+            const opacity = Math.max(0.05, 0.15 - (intensity * 0.1));
+            overlay.style.background = `rgba(0, 0, 0, ${opacity})`;
+        }
+    }
+
+    function applyTrebleReaction(trebleLevel) {
+        const intensity = Math.min(trebleLevel / 128, 1);
+        const elements = document.querySelectorAll('.treble-react');
+
+        // Higher threshold and much more subtle effects
+        if (intensity > 0.6) {
+            const glowIntensity = intensity * 5; // Much smaller glow
+            const hue = 320 + (intensity * 20); // Smaller hue range
+            const fallColors = { primary: 'rgba(217,96,59,1)', secondary: 'rgba(191,142,63,1)', accent: 'rgba(140,56,42,1)', highlight: 'rgba(234,162,33,1)', neutral: 'rgba(94,72,62,1)' }, applyFallColors = () => { document.head.appendChild(document.createElement('style')).textContent = ':root{--fall-primary:rgba(217,96,59,1);--fall-secondary:rgba(191,142,63,1);--fall-accent:rgba(140,56,42,1);--fall-highlight:rgba(234,162,33,1);--fall-neutral:rgba(94,72,62,1)}'; document.querySelectorAll('.treble-react,.text-element,p,h1,h2,h3,h4,h5,h6').forEach(e => { const t = 0.5 + 0.5 * Math.random(); let o; e.tagName.match(/H[1-2]/) ? o = fallColors.primary : e.tagName.match(/H[3-4]/) ? o = fallColors.secondary : o = fallColors.accent, e.style.cssText = `color:${o};text-shadow:0 0 ${8 * t}px rgba(217,96,59,${0.4 * t});transition:all 0.3s ease-out`, e.addEventListener('mouseenter', () => { e.style.textShadow = `0 0 ${12 * t}px ${fallColors.highlight}`, e.style.color = fallColors.highlight }), e.addEventListener('mouseleave', () => { e.style.textShadow = `0 0 ${8 * t}px rgba(217,96,59,${0.4 * t})`, e.style.color = o }) }) }, applyTrebleReaction = t => { const o = Math.min(t / 128, 1); o > 0.25 && document.querySelectorAll('.treble-react').forEach(e => { e.style.boxShadow = `0 0 ${15 * o}px ${fallColors.highlight}`, e.style.transition = 'all 0.2s ease', e.style.color = o > 0.5 ? fallColors.highlight : fallColors.primary }) };
+        } else {
+            // Reset when below threshold
+            elements.forEach(el => {
+                el.style.boxShadow = '';
+            });
+        }
+    }
+
+    function removeAllMusicEffects() {
+        const overlay = document.getElementById('music-overlay');
+        if (overlay) overlay.remove();
+
+        // Clean up all elements at once
+        const allReactiveElements = document.querySelectorAll('.bass-react, .treble-react');
+        allReactiveElements.forEach(el => {
+            el.classList.remove('bass-react', 'treble-react');
+            el.style.filter = '';
+            el.style.transform = '';
+            el.style.boxShadow = '';
+            el.style.transition = '';
         });
+    }
+
+
+
+    // Add the CSS animation if it doesn't exist
+    if (!document.querySelector('#music-animation-styles')) {
+        const style = document.createElement('style');
+        style.id = 'music-animation-styles';
+        style.textContent = `
+        @keyframes musicPulse {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
+        }
+    `;
+        document.head.appendChild(style);
     }
 
     function applyBassReaction(bassLevel) {
@@ -408,31 +510,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function showMusicIndicator() {
-        const indicator = document.createElement('div');
-        indicator.id = 'music-indicator';
-        indicator.innerHTML = '🎵';
-        indicator.style.cssText = `
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            font-size: 2rem;
-            z-index: 1000;
-            animation: musicPulse 0.6s ease infinite;
-            background: rgba(255, 107, 157, 0.9);
-            padding: 10px 15px;
-            border-radius: 50%;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        `;
-        document.body.appendChild(indicator);
-    }
 
-    function removeMusicIndicator() {
-        const indicator = document.getElementById('music-indicator');
-        if (indicator) {
-            indicator.remove();
-        }
-    }
+
+
 
     function showSpyMessage() {
         const msgBox = document.createElement('div');
